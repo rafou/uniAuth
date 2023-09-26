@@ -63,12 +63,15 @@ class MetadataStoreAdmin(admin.ModelAdmin):
 
     def metadata_element_preview(self, obj):  # pragma: no cover
         try:
-            dumps = json.dumps(obj.as_pysaml2_mdstore_row(),
+            if obj.type == 'local' and obj.file:
+                dumps = obj.file.read().decode()
+            else:
+                dumps = json.dumps(obj.as_pysaml2_mdstore_row(),
                                indent=4)
         except Exception:
             # for newly created
             return
-        return mark_safe(dumps.replace(r'\n', '<br>').replace(r'\s', '&nbsp'))
+        return dumps.replace(r'\n', '<br>').replace(r'\s', '&nbsp')
     metadata_element_preview.short_description = 'Metadata element preview'
 
     def save_model(self, request, obj, form, change):
