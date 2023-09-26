@@ -222,6 +222,17 @@ class MetadataStore(models.Model):
         raise NotYetImplemented(
             'see models.MetadataStore.as_pysaml2_mdstore_row')
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        instance._loaded_db_values = dict(zip(field_names, values))
+        return instance
+
+    def field_value_changed(self, field_name: str) -> bool:
+        ''' Returns whether the current value of a field is changed vs what was loaded from the db. '''
+        current_value = getattr(self, field_name)
+        return current_value != getattr(self, '_loaded_db_values', {}).get(field_name, current_value)
+
     def validate(self):
         error = None
         if self.type == 'mdq':  # pragma: no cover
@@ -250,7 +261,7 @@ class MetadataStore(models.Model):
             try:
                 if self.file:
                     defusedxml.ElementTree.fromstring(
-                        open(self.file.path).read())
+                        self.file.read())
                 if self.url:
                     files = [os.path.join(self.url, f)
                              for f in os.listdir(self.url)]
@@ -261,7 +272,10 @@ class MetadataStore(models.Model):
                 error = 'found an invalid XML: {}'.format(e)
 
             res = (self.url) if not self.file else (self.file.path)
-            if not os.path.exists(res):
+            if not res:
+                self.is_active = False
+                error = 'Empty file or url for "local" type. Metadata is not valid'
+            elif not self.field_value_changed('file') and not os.path.exists(res):
                 self.is_active = False
                 error = 'Path is not existent: {}'.format(res)
 
