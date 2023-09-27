@@ -1,22 +1,33 @@
-import defusedxml
+import json
 import logging
 import os
-import json
+import uuid
+from datetime import timedelta
+
+import defusedxml
 import requests
 import saml2.xmldsig
-
-from datetime import timedelta
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
-from django.utils.translation import gettext as _
 from django.utils.module_loading import import_string
+from django.utils.translation import gettext as _
 
-from . exceptions import NotYetImplemented
-
+from .exceptions import NotYetImplemented
 
 logger = logging.getLogger('__name__')
 
+DEFAULT_PROCESSOR = 'uniauth_saml2_idp.base.processors.BaseProcessor'
+
+DEFAULT_ATTRIBUTE_MAPPING = {
+    # DJANGO: SAML
+    'email': 'email',
+    'first_name': 'first_name',
+    'last_name': 'last_name',
+    'is_staff': 'is_staff',
+    'is_superuser': 'is_superuser',
+}
 
 class AgreementRecord(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL,
@@ -53,23 +64,23 @@ class ServiceProvider(models.Model):
                                                "is the same of entityID"))
     description = models.TextField(blank=True, default='')
     agreement_screen = models.BooleanField(
-        default=settings.SAML_IDP_SHOW_USER_AGREEMENT_SCREEN)
+        default=False)
     agreement_consent_form = models.BooleanField(
-        default=settings.SAML_IDP_SHOW_CONSENT_FORM)
+        default=False)
     agreement_message = models.TextField(blank=True, default='')
     signing_algorithm = models.CharField(choices=[(y, x) for x, y in saml2.xmldsig.SIG_ALLOWED_ALG],
-                                         default=settings.SAML_AUTHN_SIGN_ALG,
+                                         default=saml2.xmldsig.SIG_RSA_SHA256,
                                          max_length=256)
     digest_algorithm = models.CharField(choices=[(y, x) for x, y in saml2.xmldsig.DIGEST_ALLOWED_ALG],
-                                        default=settings.SAML_AUTHN_DIGEST_ALG,
+                                        default=saml2.xmldsig.DIGEST_SHA256,
                                         max_length=256)
     disable_encrypted_assertions = models.BooleanField(default=True,
                                                        help_text=('disable encryption'))
-    attribute_processor = models.CharField(default=settings.DEFAULT_SPCONFIG['processor'],
+    attribute_processor = models.CharField(default=DEFAULT_PROCESSOR,
                                            help_text=_('"package.file.classname", '
                                                        'example: "uniauth_saml2_idp.base.processors.BaseProcessor"'),
                                            max_length=256, blank=True)
-    attribute_mapping = models.TextField(default=json.dumps(settings.DEFAULT_SPCONFIG['attribute_mapping'],
+    attribute_mapping = models.TextField(default=json.dumps(DEFAULT_ATTRIBUTE_MAPPING,
                                                             sort_keys=True,
                                                             indent=4),
                                          blank=True, null=True,
@@ -271,13 +282,9 @@ class MetadataStore(models.Model):
                 self.is_active = False
                 error = 'found an invalid XML: {}'.format(e)
 
-            res = (self.url) if not self.file else (self.file.path)
-            if not res:
+            if not (self.url or self.file):
                 self.is_active = False
                 error = 'Empty file or url for "local" type. Metadata is not valid'
-            elif not self.field_value_changed('file') and not os.path.exists(res):
-                self.is_active = False
-                error = 'Path is not existent: {}'.format(res)
 
         try:
             json.loads(self.kwargs)
@@ -300,3 +307,17 @@ class MetadataStore(models.Model):
 
     def __str__(self):
         return '{} [{}]'.format(self.name, self.is_valid)
+
+
+class PersistentId(models.Model):
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    sp = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE)
+    persistent_id = models.UUIDField("User Persistent Id for this SP", default=uuid.uuid4)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["sp", "persistent_id"], name="unique_ids_per_sp"),
+            models.UniqueConstraint(fields=["sp", "user"], name="unique_users_per_sp"),
+        ]
+        verbose_name = 'Persistent Id'

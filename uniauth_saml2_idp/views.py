@@ -40,7 +40,6 @@ from saml2.saml import NAMEID_FORMAT_UNSPECIFIED, NAMEID_FORMAT_PERSISTENT
 from saml2.response import (IncorrectlySigned,)
 from six import text_type
 
-from accounts.models import PersistentId
 from . decorators import (_not_valid_saml_msg,
                           store_params_in_session_func,
                           require_saml_request)
@@ -49,7 +48,7 @@ from . exceptions import (MetadataNotFound,
                           UnavailableRequiredAttributes,
                           DisabledSP)
 from . forms import AgreementForm, LoginForm
-from . models import AgreementRecord, ServiceProvider
+from . models import AgreementRecord, ServiceProvider, PersistentId
 from . processors.base import BaseProcessor
 from . utils import (repr_saml,
                      get_idp_config,
