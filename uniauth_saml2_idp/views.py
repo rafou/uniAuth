@@ -703,7 +703,7 @@ class LoginProcessView(LoginRequiredMixin, IdPHandlerViewMixin, View):
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated:
-            logger.info('{}: already logged in.'.format(request.user.username))
+            logger.info('{}: already logged in.'.format(request.user.email))
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request, *args, **kwargs):
