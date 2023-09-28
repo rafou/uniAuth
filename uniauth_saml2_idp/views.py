@@ -554,7 +554,7 @@ class IdPHandlerViewMixin(ErrorHandler):
                 "saml_response": base64.b64encode(authn_resp.encode()).decode(),
                 "relay_state": relay_state,
             }
-            template = "saml_post.html"
+            template = "uniauth/login.html"
             html_response = render_to_string(template, context=context,
                                              request=request)
 
