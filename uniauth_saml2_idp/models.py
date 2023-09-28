@@ -18,7 +18,7 @@ from .exceptions import NotYetImplemented
 
 logger = logging.getLogger('__name__')
 
-DEFAULT_PROCESSOR = 'uniauth_saml2_idp.base.processors.BaseProcessor'
+DEFAULT_PROCESSOR = 'uniauth_saml2_idp.processors.base.BaseProcessor'
 
 DEFAULT_ATTRIBUTE_MAPPING = {
     # DJANGO: SAML
@@ -78,7 +78,7 @@ class ServiceProvider(models.Model):
                                                        help_text=('disable encryption'))
     attribute_processor = models.CharField(default=DEFAULT_PROCESSOR,
                                            help_text=_('"package.file.classname", '
-                                                       'example: "uniauth_saml2_idp.base.processors.BaseProcessor"'),
+                                                       'example: "uniauth_saml2_idp.processors.base.BaseProcessor"'),
                                            max_length=256, blank=True)
     attribute_mapping = models.TextField(default=json.dumps(DEFAULT_ATTRIBUTE_MAPPING,
                                                             sort_keys=True,
