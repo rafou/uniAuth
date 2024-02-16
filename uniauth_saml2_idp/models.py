@@ -214,9 +214,13 @@ class MetadataStore(models.Model):
         stores = cls.objects.filter(is_active=True, is_valid=True)
         d = {}
         for store in stores:
+            value = store.as_pysaml2_mdstore_row()
+            if isinstance(value, dict) and "url" in value:
+                store.type = "remote"
+
             if not d.get(store.type):
                 d[store.type] = []
-            d[store.type].append(store.as_pysaml2_mdstore_row())
+            d[store.type].append(value)
         return d
 
     def as_pysaml2_mdstore_row(self):
@@ -229,7 +233,10 @@ class MetadataStore(models.Model):
                 d.update(kwargs)
             return d
         elif self.type == 'local':
-            return (self.url) if not self.file else (self.file.path)
+            if settings.DEFAULT_FILE_STORAGE == 'storages.backends.s3boto3.S3Boto3Storage':
+                return {"url": self.file.url}
+            else:
+                return (self.url) if not self.file else (self.file.path)
         raise NotYetImplemented(
             'see models.MetadataStore.as_pysaml2_mdstore_row')
 
